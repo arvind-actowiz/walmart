@@ -61,3 +61,32 @@ class DatabaseManager:
             print(f"Query failed: {e}\nQuery: {query}")
             raise
     
+        
+    def insert_subcategories(self, subcategories: List[Dict]):
+        """
+        Insert scraped subcategories into database
+        Args:
+            subcategories: List of subcategories dictionaries with:
+                - category_name
+                - category_url
+                - subcategory_name
+                - subcategory_url
+        """
+        try:
+            insert_query = """
+                INSERT INTO subcategories (
+                    category_name, category_url, subcategory_name, subcategory_url
+                ) VALUES (
+                    %(category_name)s, %(category_url)s, %(subcategory_url)s, %(subcategory_url)s)
+            """
+            
+            self.cursor.executemany(insert_query, subcategories)
+            self.connection.commit()
+            print(f"Inserted/updated {len(subcategories)} subcategories")
+
+        except Error as e:
+            self.connection.rollback()
+            print(f"Subcategories insertion failed: {e}")
+            raise
+    
+

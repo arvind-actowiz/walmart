@@ -13,6 +13,8 @@ def get_driver(headless=True):
     options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
     options.add_argument("--disable-popup-blocking")
     options.add_argument("--allow-redirects")
+    options.add_argument("--incognito")
+
     
     # Initialize undetected-chromedriver
     driver = uc.Chrome(
