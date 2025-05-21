@@ -90,3 +90,43 @@ class DatabaseManager:
             raise
     
 
+    def get_pending_subcategories(self) -> List[Dict]:
+        """Fetch subcategories that haven't been processed yet"""
+        self.cursor.execute("""
+            SELECT id, category_name, category_url, subcategory_name, subcategory_url
+            FROM subcategories
+            WHERE status IS NULL OR status != 'done'
+        """)
+        return self.cursor.fetchall()
+
+    
+    def insert_products(self, products: List[Dict]):
+        """
+        Insert scraped product details into the database.
+        """
+        try:
+            insert_query = """
+                INSERT INTO products (
+                    item_id, upc, product_id, url, name, categories, 
+                    image, store_id, store_location, price, mrp,
+                    discount, availability, keyword, size
+                ) VALUES (
+                    %(item_id)s, %(upc)s, %(product_id)s, %(url)s, %(name)s, 
+                    %(categories)s, %(image)s, %(store_id)s, %(store_location)s, 
+                    %(price)s, %(mrp)s, %(discount)s, %(availability)s, 
+                    %(keyword)s, %(size)s
+                )
+            """
+
+            # Convert `categories` list to JSON string before insert
+            for product in products:
+                product["categories"] = json.dumps(product.get("categories", []))
+
+            self.cursor.executemany(insert_query, products)
+            self.connection.commit()
+            print(f"Inserted/updated {len(products)} products")
+
+        except Error as e:
+            self.connection.rollback()
+            print(f"Product insertion failed: {e}")
+            raise
