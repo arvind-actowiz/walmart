@@ -108,31 +108,49 @@ def scrape_product_details(product_url):
         raise e
 
 
-def scrape_products(search_url):
+def scrape_products(search_keyword):
     """Scrapes subcategory for each given category page URL."""
+    search_url = generate_search_url(search_keyword)
+
+    # --- Open URL and look for last page number ---
     driver = get_driver(headless=True)
     print("Opening: ", search_url)
     driver.get(search_url)
 
-    wait = WebDriverWait(driver, 10)
+    last_page_number = get_last_page_number(driver)
 
-    # Get all the products anchor tags
-    product_elements = wait.until(
-        EC.visibility_of_element_located((By.CSS_SELECTOR, "[data-testid='item-stack']"))
-    ).find_elements(By.TAG_NAME, "a")
-
-    print("Total products found: ", len(product_elements))
-
-    products = []
-
-    for product in product_elements:
-        products.append({
-            "product_name": product.text,
-            "product_url": product.get_attribute('href')
-        })
+    print("Total pages available: ", last_page_number)
 
     driver.close()
     del driver
+    # -----
+
+    products = []
+
+    for page_nu in range(1, last_page_number):
+        search_url = generate_search_url(search_keyword) + "&page=" + str(page_nu)
+
+        # There's a reason mentioned below why we've to create new window always for a URL
+        driver = get_driver(headless=True)
+        print("Opening: ", search_url)
+        driver.get(search_url)
+        wait = WebDriverWait(driver, 10)
+
+        # Get all the products anchor tags
+        product_elements = wait.until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, "[data-testid='item-stack']"))
+        ).find_elements(By.TAG_NAME, "a")
+
+        print(f"Total products found on page {page_nu}: {len(product_elements)}")
+
+        for product in product_elements:
+            products.append({
+                "product_name": product.text,
+                "product_url": product.get_attribute('href')
+            })
+        
+        driver.close()
+        del driver
 
     return products
 
@@ -145,14 +163,38 @@ def generate_search_url(query):
     return url
 
 
-if __name__ == "__main__":
-    keyword_to_search = "bread"
+def get_last_page_number(driver):
+    """
+    Get last page number from pagination elements.
+    """
+    try:
+        # Wait for the pagination element to be present
+        pagination = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "ul.list.flex.items-center.justify-center.pa0"))
+        )
+        
+        # Find all page number elements
+        page_items = pagination.find_elements(By.CSS_SELECTOR, "li a[data-automation-id='page-number'], li div")
+        
+        # Extract the last page number
+        last_page = 1
+        for item in reversed(page_items):
+            if item.text.isdigit():
+                last_page = int(item.text)
+                break
+        return last_page
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
-    search_url = generate_search_url(keyword_to_search)
+
+if __name__ == "__main__":
+    keyword_to_search = "bread italian"
 
     # PS: Opening URLs in current window's tab yields captcha, to deal with it, we'll open URLs in whole new chrome instance repteadly
     with DatabaseManager(DB_CONFIG) as db:
-        products = scrape_products(search_url)
+        products = scrape_products(keyword_to_search)
+
+        print(f"Total products to scrape: {len(products)}")
 
         for product in products:
             if db.check_if_product_exists(product['product_url']):
