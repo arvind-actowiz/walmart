@@ -130,3 +130,22 @@ class DatabaseManager:
             self.connection.rollback()
             print(f"Product insertion failed: {e}")
             raise
+
+    def check_if_product_exists(self, product_url: str) -> bool:
+        """
+        Checks if a product with the given URL exists in the 'products' table.
+
+        Args:
+            product_url: The URL of the product to check.
+
+        Returns:
+            True if the product exists, False otherwise.
+        """
+        try:
+            query = "SELECT 1 FROM products WHERE url = %s LIMIT 1"
+            self.cursor.execute(query, (product_url,))
+            result = self.cursor.fetchone()
+            return result is not None
+        except Error as e:
+            print(f"Error checking product existence: {e}")
+            raise

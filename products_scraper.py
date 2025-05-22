@@ -72,27 +72,36 @@ def fill_product_data(pd: dict) -> dict:
     return product_data
 
 def scrape_product_details(product_url):
-    driver = get_driver(headless=True)
-    print("Opening: ", product_url)
-    driver.get(product_url)
+    try:
+        driver = get_driver(headless=True)
+        print("Opening: ", product_url)
+        driver.get(product_url)
 
-    page_source = driver.page_source
+        page_source = driver.page_source
 
-    soup = BeautifulSoup(page_source, 'html.parser')
+        soup = BeautifulSoup(page_source, 'html.parser')
 
-    next_data_script = json.loads(soup.find('script', {'id': '__NEXT_DATA__'}).text)
+        next_data_script = json.loads(soup.find('script', {'id': '__NEXT_DATA__'}).text)
 
-    product_source_data = next_data_script['props']['pageProps']['initialData']['data']['product']
+        product_source_data = next_data_script['props']['pageProps']['initialData']['data']['product']
 
-    product_data = fill_product_data(product_source_data)
-    product_data['url'] = product_url
+        product_data = fill_product_data(product_source_data)
+        product_data['url'] = product_url
 
-    print(product_data)
+        print(product_data)
 
-    driver.close()
-    del driver
-    
-    return product_data
+        driver.close()
+        del driver
+
+        return product_data
+    except Exception as e:
+        print("Error occured while scraping product details")
+        print(e)
+
+        driver.close()
+        del driver
+
+        raise e
 
 
 def scrape_products(subcategory):
@@ -133,7 +142,16 @@ if __name__ == "__main__":
             products = scrape_products(subcat)
 
             for product in products:
-                product_details = scrape_product_details(product['product_url'])
-                db.insert_products([product_details])
+                if db.check_if_product_exists(product['product_url']):
+                    print(f"Product with URL: {product['product_url']} exists in database, hence skipping.")
+                    continue
+                
+                try:
+                    product_details = scrape_product_details(product['product_url'])
+
+                    # Insert each product individually -> REMOVE LATER
+                    db.insert_products([product_details])
+                except Exception:
+                    pass
 
         print("Total subcategories scraped: ", len(subcategories))
